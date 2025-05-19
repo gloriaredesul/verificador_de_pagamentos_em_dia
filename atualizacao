@@ -1,0 +1,56 @@
+# 📌 Passo 1: Importar bibliotecas
+import pandas as pd
+from google.colab import files
+import io
+import locale
+
+# 📌 Passo 2: Definir locale para meses em português
+try:
+    locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
+except:
+    try:
+        locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+    except:
+        print("⚠️ Locale em pt_BR não disponível. Meses podem aparecer em inglês.")
+
+# 📌 Passo 3: Upload do arquivo
+print("📁 Faça o upload da planilha (.xlsx ou .csv):")
+uploaded = files.upload()
+
+# 📌 Passo 4: Leitura da planilha
+filename = list(uploaded.keys())[0]
+
+if filename.endswith('.xlsx'):
+    df = pd.read_excel(io.BytesIO(uploaded[filename]))
+elif filename.endswith('.csv'):
+    df = pd.read_csv(io.BytesIO(uploaded[filename]))
+else:
+    raise ValueError("Formato não suportado. Envie .xlsx ou .csv")
+
+# 📌 Passo 5: Padronizar nomes de colunas
+df.columns = df.columns.str.strip().str.lower()
+
+# 📌 Passo 6: Verificar se colunas esperadas existem
+if 'vencimento' not in df.columns or 'pagamento' not in df.columns:
+    raise ValueError(f"Colunas esperadas não encontradas. Colunas disponíveis: {df.columns.tolist()}")
+
+# 📌 Passo 7: Converter datas
+df['vencimento'] = pd.to_datetime(df['vencimento'], errors='coerce')
+df['pagamento'] = pd.to_datetime(df['pagamento'], errors='coerce')
+
+# 📌 Passo 8: Identificar pagamentos em dia
+em_dia = (
+    (df['vencimento'].dt.month == df['pagamento'].dt.month) &
+    (df['vencimento'].dt.year == df['pagamento'].dt.year)
+)
+
+# 📌 Passo 9: Listar apenas os meses e anos dos pagamentos em dia
+meses_em_dia = df.loc[em_dia, 'pagamento'].dt.to_period('M').dropna().unique()
+
+# Converter para formato legível (ex: Março/2024)
+meses_formatados = [p.to_timestamp().strftime('%B/%Y').capitalize() for p in meses_em_dia]
+
+# 📌 Passo 10: Exibir resultado
+print("\n✅ Meses e anos com pagamentos em dia:")
+for mes in meses_formatados:
+    print(f"- {mes}")
